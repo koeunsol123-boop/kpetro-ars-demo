@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI ARS 접수 지도 시각화</title>
+  <link rel="icon" href="./favicon.png" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    body {
+      font-family: 'Pretendard', sans-serif;
+      background: #f5f7fa;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+    }
+    h2 {
+      color: #004c97;
+      margin: 20px 0 10px 0;
+    }
+    #map {
+      height: 80vh;
+      width: 90%;
+      margin: 0 auto;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }
+    .btn {
+      background: #004c97;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 20px auto;
+      font-weight: bold;
+    }
+    .btn:hover { background: #0063c7; }
+  </style>
+</head>
+<body>
+  <h2>🗺️ AI ARS 지역별 신고 현황 지도</h2>
+  <div id="map"></div>
+  <button class="btn" onclick="goHome()">🏠 메인으로 돌아가기</button>
+
+  <script>
+    const map = L.map("map").setView([35.25, 128.9], 8.2); // 부울경 중심좌표
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    // 지역 좌표 (블라인드 지역 대응)
+    const regionCoords = {
+      "00 지역": [35.18, 129.07], // 부산
+      "AA 지역": [35.54, 129.31], // 울산
+      "BB 지역": [35.23, 128.68]  // 경남
+    };
+
+    // LocalStorage에서 신고 로그 불러오기
+    const logs = JSON.parse(localStorage.getItem("arsLogs") || "[]");
+    const regionCount = {};
+
+    logs.forEach((log) => {
+      regionCount[log.region] = (regionCount[log.region] || 0) + 1;
+    });
+
+    // 지역별 마커 표시
+    Object.entries(regionCoords).forEach(([region, coord]) => {
+      const count = regionCount[region] || 0;
+
+      // 색상 강도 (신고 횟수 기반)
+      let color = "#1b75d0";
+      if (count >= 3) color = "#ff3333";
+      else if (count === 2) color = "#ff9900";
+      else if (count === 1) color = "#33cc33";
+
+      const marker = L.circleMarker(coord, {
+        radius: 20,
+        fillColor: color,
+        fillOpacity: 0.8,
+        color: "#fff",
+        weight: 2
+      }).addTo(map);
+
+      marker.bindPopup(`
+        <b>${region}</b><br>
+        접수 건수: <b>${count}</b> 건
+      `);
+    });
+
+    function goHome() {
+      window.location.href = "/";
+    }
+  </script>
+</body>
+</html>

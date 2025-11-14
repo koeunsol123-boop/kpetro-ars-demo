@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 민원 메신저</title>
+
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(135deg,#1f2a44,#26334d);
+      font-family: "Pretendard","Noto Sans KR",sans-serif;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+    }
+    .wrap {
+      width: 95%;
+      max-width: 560px;
+      height: 90vh;
+      background: rgba(255,255,255,0.1);
+      border-radius: 18px;
+      padding: 16px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+    }
+    .chat {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding-right: 6px;
+    }
+    .msg {
+      background: #dbe8ff;
+      color: #002a69;
+      padding: 12px 14px;
+      border-radius: 12px;
+      max-width: 85%;
+      white-space: pre-line;
+      line-height: 1.42;
+    }
+    .btn {
+      background: #0056b3;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      align-self: center;
+    }
+    img.map{
+      width:100%;
+      border-radius:12px;
+      opacity:0;
+      transform:translateY(10px);
+      transition:opacity .45s, transform .45s;
+    }
+    img.map.show{
+      opacity:1;
+      transform:translateY(0);
+    }
+  </style>
+</head>
+
+<body>
+<div class="wrap">
+  <div id="chat" class="chat"></div>
+</div>
+
+<script>
+const chat=document.getElementById("chat");
+const p=new URLSearchParams(location.search);
+
+/* 공통 출력 함수 */
+function add(text){
+  const d=document.createElement("div");
+  d.className="msg";
+  d.textContent=text;
+  chat.appendChild(d);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function addBtn(label,fn){
+  const b=document.createElement("button");
+  b.className="btn";
+  b.textContent=label;
+  b.onclick=fn;
+  chat.appendChild(b);
+  chat.scrollTop=chat.scrollHeight;
+}
+
+function addImg(src){
+  const i=document.createElement("img");
+  i.src=src;
+  i.className="map";
+  chat.appendChild(i);
+  chat.scrollTop=chat.scrollHeight;
+  setTimeout(()=>i.classList.add("show"),10);
+}
+
+/* 파라미터 정리 */
+let detail = p.get("detail") || "기타 문의";
+let mode   = p.get("mode")   || "";
+
+const status = p.get("status") || "";  // ok / busy
+const record = p.get("record") || "no";
+
+/* detail 안정화 */
+if(!detail || detail === "undefined"){
+  detail = "기타 문의";
+}
+
+/* 랜덤 문구 세트 */
+const baseTexts={
+  "혼합유":[
+    "주유 후 차량 시동 불량으로 혼합유가 의심됩니다.",
+    "정비소에서 연료 품질 이상이 발견되어 신고합니다."
+  ],
+  "가짜석유":[
+    "주유 후 출력 저하로 가짜석유가 의심됩니다.",
+    "주유소 품질 문제가 제기되어 신고합니다."
+  ],
+  "정량검사":[
+    "주유량이 부족한 것으로 의심되어 접수합니다."
+  ],
+  "LPG":[
+    "LPG 충전 후 이상 진동이 발생하여 접수합니다."
+  ],
+  "일반 대리점 등록·변경":[
+    "대리점 등록/변경 사항 문의드립니다."
+  ],
+  "기타 문의":[
+    "기타 상담 요청드립니다.",
+    "업무 관련 문의가 있습니다."
+  ]
+};
+
+const evidence={
+  "혼합유":"연료 샘플 제출됨",
+  "가짜석유":"주행 영상 확보됨",
+  "정량검사":"계량기 사진 첨부됨",
+  "LPG":"진동 발생 영상 확보됨",
+  "일반 대리점 등록·변경":"관련 서류 확보됨",
+  "기타 문의":"관련 내용 확인됨"
+};
+
+const safeDetail = baseTexts[detail] ? detail : "기타 문의";
+
+const txt = baseTexts[safeDetail][ Math.floor(Math.random()*baseTexts[safeDetail].length ) ];
+const ev  = evidence[safeDetail];
+
+/* 🔥 상태/녹음 출력 규칙 최종본 */
+let statusText = "";
+let recordText = "";
+
+/* 정상 접수일 경우 → 상태/녹음 모두 표시하지 않음 */
+if(status === "ok"){
+  statusText = "";
+  recordText = "";
+}
+
+/* 부재중 + 녹음 안 함 */
+else if(status === "busy" && record === "no"){
+  statusText = "담당자 통화중/부재중";
+  recordText = "녹음 파일 없음";
+}
+
+/* 부재중 + 녹음 함 */
+else if(status === "busy" && record === "yes"){
+  statusText = "담당자 통화중/부재중";
+  recordText = "녹음 파일 있음";
+}
+
+/* ---------------- 초기 요약 메시지 구성 ---------------- */
+
+const lines = [];
+
+// 지역
+lines.push(`지역: ${p.get("region") || ""}`);
+
+// 유형 (기타문의는 괄호 제거)
+if(safeDetail === "기타 문의" || !mode){
+  lines.push(`유형: ${safeDetail}`);
+} else {
+  lines.push(`유형: ${safeDetail} (${mode})`);
+}
+
+// 신고자 / 주소 / 본문
+lines.push(`신고자: ${p.get("name")} / ${p.get("phone")}`);
+lines.push(`주소: ${p.get("addr")}`);
+lines.push(`내용: ${txt}`);
+
+// 기타문의는 증거물 제거
+if(safeDetail !== "기타 문의"){
+  lines.push(`증거물: ${ev}`);
+}
+
+// 🔥 정상접수일 때는 상태 & 녹음 모두 출력 X
+if(statusText){
+  lines.push(`상태: ${statusText}`);
+}
+
+if(recordText){
+  lines.push(`녹음: ${recordText}`);
+}
+
+add(lines.join("\n"));
+
+/* ---------------- 접수 확인 버튼 → 지도 흐름 ---------------- */
+
+addBtn("접수 확인", async()=>{
+
+  add("신고자에게 접수확인이 전달되었습니다.");
+
+  await new Promise(r=>setTimeout(r,900));
+
+  add("2건 이상 접수된 의심 업소가 있습니다.\n확인하시겠습니까?");
+  addBtn("지도 확인",()=>{
+
+    addImg("./images/map_shop_blind.png");
+
+    setTimeout(()=>{
+      add("해당 구역은 1분기 3회 이상 신고가 접수된 의심 지역입니다.\n확인하시겠습니까?");
+      addBtn("지도 확인",()=>{
+        addImg("./images/map_city_blind.png");
+      });
+    },900);
+  });
+});
+</script>
+
+</body>
+</html>
+
+
+
+
+
+
+
+
+ 
+

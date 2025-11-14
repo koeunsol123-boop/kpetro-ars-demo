@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>한국석유관리원 AI ARS 시연 시스템</title>
+
+  <style>
+    body {
+      font-family: "Pretendard", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: url("./bg_kpetro_head.png") no-repeat center center fixed;
+      background-size: cover;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      color: #002f6c;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      min-height: 100vh;
+      text-align: center;
+      padding-top: 40px;
+    }
+
+    .logo {
+      width: 90%;
+      max-width: 480px;
+      mix-blend-mode: multiply;
+      margin-bottom: 16px;
+    }
+
+    .start-btn {
+      background: #ffffffcc;
+      padding: 14px 24px;
+      border-radius: 14px;
+      font-size: 18px;
+      font-weight: 700;
+      border: none;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      margin-bottom: 30px;
+      cursor: pointer;
+    }
+
+    .chat-box {
+      background: rgba(255,255,255,0.68);
+      backdrop-filter: blur(4px);
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+      width: 90%;
+      max-width: 500px;
+      padding: 20px;
+      min-height: 260px;
+      text-align: left;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .msg {
+      background: rgba(230,240,255,0.85);
+      border-radius: 12px;
+      padding: 10px 14px;
+      margin: 10px 0;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .btn {
+      display: inline-block;
+      background: rgba(255,255,255,0.65);
+      color: #003366;
+      border: 1.8px solid rgba(255,255,255,0.75);
+      border-radius: 12px;
+      padding: 10px 18px;
+      margin: 8px 6px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.25s ease;
+      backdrop-filter: blur(6px);
+      text-shadow: 0 1px 1px rgba(255,255,255,0.4);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+
+    .btn:hover {
+      background: rgba(255,255,255,0.85);
+      transform: translateY(-1px);
+      box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+    }
+
+    .input-area {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      margin-top: 12px;
+    }
+
+    .input-area input {
+      width: 100%;
+      max-width: 460px;
+      padding: 10px;
+      margin: 6px 0;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      font-size: 15px;
+    }
+
+    .character {
+      position: fixed;
+      bottom: 8px;
+      right: 10px;
+      width: 130px;
+      opacity: 0.95;
+      pointer-events: none;
+      mix-blend-mode: multiply;
+    }
+  </style>
+</head>
+
+<body>
+
+<img src="./kpetro_logo.png" class="logo" />
+<button id="startBtn" class="start-btn">▶ 시작하기</button>
+
+<div class="chat-box" id="chatBox"></div>
+<div id="btnArea"></div>
+
+<div class="input-area" id="inputArea">
+  <input type="text" id="userName" placeholder="성명 입력" />
+  <input type="text" id="userPhone" placeholder="전화번호 입력" />
+  <input type="text" id="userAddress" placeholder="주소 입력" />
+</div>
+
+<img src="./bg_kpetro_yubanjang.png" class="character" />
+
+<script>
+/* -------------------- 공통 함수 --------------------- */
+
+function say(text){
+  return new Promise(res=>{
+    const d=document.createElement("div");
+    d.className="msg";
+    d.textContent=text;
+    document.getElementById("chatBox").appendChild(d);
+    d.scrollIntoView({behavior:"smooth"});
+    setTimeout(res, 300);
+  });
+}
+
+function playAudio(file){
+  return new Promise(res=>{
+    const a=new Audio("./audio/"+file);
+    a.volume=0.43;
+    a.onended = res;
+    a.onerror = res;
+    a.play().catch(res);
+  });
+}
+
+function btn(text,fn){
+  const b=document.createElement("button");
+  b.className="btn";
+  b.textContent=text;
+  b.onclick=fn;
+  return b;
+}
+
+function showButtons(arr){
+  const area=document.getElementById("btnArea");
+  area.innerHTML="";
+  arr.forEach(b=>area.appendChild(b));
+}
+
+function clearButtons(){
+  document.getElementById("btnArea").innerHTML="";
+}
+
+/* -------------------- 상태 --------------------- */
+
+const state={region:"", category:"", detail:"", mode:""};
+let ringAudio;
+
+/* -------------------- 시작 --------------------- */
+
+document.getElementById("startBtn").onclick=async()=>{
+  document.getElementById("startBtn").style.display="none";
+  document.getElementById("chatBox").style.display="block";
+
+  await say("안녕하십니까. 한국석유관리원입니다.");
+  await playAudio("intro.mp3");
+
+  await say("원하시는 업무를 위해 먼저 지역을 말씀해주세요.");
+  await playAudio("region_guide.mp3");
+
+  showRegion();
+};
+
+/* ----------------- 지역 선택 ----------------- */
+
+function showRegion(){
+  showButtons([
+    btn("AA지역", ()=>selectRegion("AA")),
+    btn("00지역", ()=>selectRegion("00"))
+  ]);
+}
+
+async function selectRegion(r){
+  clearButtons();
+  state.region=r;
+
+  await say(`${r}지역으로 인식되었습니다.`);
+  await playAudio(r==="AA" ? "region_AA.mp3" : "region_00.mp3");
+
+  await say("접수 유형을 말씀해주세요.");
+  await playAudio("category_guide.mp3");
+
+  showCategory();
+}
+
+/* ----------------- 카테고리 ----------------- */
+
+function showCategory(){
+  showButtons([
+    btn("신고·민원", ()=>selectCategory("신고·민원")),
+    btn("기타 문의", ()=>selectCategory("기타 문의"))
+  ]);
+}
+
+async function selectCategory(c){
+  clearButtons();
+  state.category=c;
+
+  if(c==="기타 문의"){
+    state.detail = "기타 문의";
+    state.mode = "";  // 메신저에서 괄호 안 나오게
+    await say("기타 문의로 인식되었습니다. 담당자 연결 중입니다...");
+    await playAudio("etc_intro.mp3");
+    startRinging();
+    showContactInput();
+    return;
+  }
+
+  await say("신고·민원으로 인식되었습니다.");
+  await playAudio("report_intro.mp3");
+
+  await say("하위 접수 항목을 말씀해주세요.");
+  await playAudio("sub_guide.mp3");
+
+  showSub();
+}
+
+/* ----------------- 하위 항목 ----------------- */
+
+function showSub(){
+  const list=[
+    ["혼합유", "detail_mix.mp3", "신고"],
+    ["가짜석유", "detail_fake.mp3", "신고"],
+    ["정량검사", "detail_measure.mp3", "접수"],
+    ["LPG", "detail_lpg.mp3", "접수"],
+    ["일반 대리점 등록·변경", "detail_agency.mp3", "접수"]
+  ];
+
+  showButtons(list.map(([name, audio, mode]) =>
+    btn(name, ()=>selectDetail(name, audio, mode))
+  ));
+}
+
+async function selectDetail(name, audio, mode){
+  clearButtons();
+  state.detail=name;
+  state.mode=mode;
+
+  await say(`${name} ${mode}로 인식되었습니다. 담당자 연결 중입니다...`);
+  await playAudio(audio);
+
+  startRinging();
+  showContactInput();
+}
+
+/* ----------------- 담당자 연결 ----------------- */
+
+function startRinging(){
+  ringAudio = new Audio("./audio/ring.mp3");
+  ringAudio.loop = true;
+  ringAudio.volume = 0.45;
+  ringAudio.play();
+}
+
+function showContactInput(){
+  document.getElementById("inputArea").style.display="flex";
+
+  showButtons([
+    // 정상 접수 : 녹음 없이 바로 종료
+    btn("✅ 접수 완료", ()=>finishCall("ok","no")),
+    // 통화중/부재중 : 녹음 플로우로 진입
+    btn("📞 통화중/부재중", ()=>busyCall())
+  ]);
+}
+
+/* ----------------- 통화중 / 부재중 ----------------- */
+
+async function busyCall(){
+  if(ringAudio){ ringAudio.pause(); }
+  clearButtons();
+  document.getElementById("inputArea").style.display="none";
+
+  await say("현재 담당자가 통화중이거나 부재중입니다. 녹음을 원하시면 녹음을 말씀해주세요.");
+  await playAudio("busy_or_absent.mp3");
+
+  // 녹음 시작 / 바로 종료 선택
+  showButtons([
+    btn("🎙 녹음 시작", ()=>startPseudoRecord()),
+    btn("📴 통화 종료", ()=>finishCall("busy","no"))
+  ]);
+}
+
+async function startPseudoRecord(){
+  clearButtons();
+
+  // 1초짜리 버저
+  const beep = new Audio("./audio/record_beep.mp3");
+  beep.volume = 0.5;
+  beep.play();
+  setTimeout(()=>beep.pause(),1000);
+
+  await say("녹음이 시작되었습니다.");
+
+  // 녹음 종료 버튼만 표시 (실제 녹음은 안 함, UI만)
+  showButtons([
+    btn("🛑 녹음 종료", ()=>stopPseudoRecord())
+  ]);
+}
+
+async function stopPseudoRecord(){
+  clearButtons();
+
+  await say("녹음이 완료되었습니다.");
+  await playAudio("record_end.mp3");
+
+  // 녹음 후 통화 종료 버튼
+  showButtons([
+    btn("📴 통화 종료", ()=>finishCall("busy","yes"))
+  ]);
+}
+
+/* ----------------- 종료 처리 ----------------- */
+
+async function finishCall(status, recordFlag){
+  if(ringAudio){ ringAudio.pause(); }
+  clearButtons();
+  document.getElementById("inputArea").style.display="none";
+
+  await say("접수가 완료되었습니다.");
+  await playAudio("submit_end.mp3");
+
+  openMessenger(status, recordFlag);
+}
+
+/* ----------------- 메신저 연동 ----------------- */
+
+function openMessenger(status, recordFlag){
+  const qs=new URLSearchParams({
+    region: state.region || "",
+    detail: state.detail || "기타 문의",
+    mode: state.mode || "",
+    status: status,          // ok / busy
+    record: recordFlag,      // yes / no
+    name: document.getElementById("userName").value || "홍길동",
+    phone: document.getElementById("userPhone").value || "010-0000-0000",
+    addr: document.getElementById("userAddress").value || "미기재"
+  });
+
+  window.open("/messenger.html?"+qs.toString(), "_blank");
+}
+</script>
+</body>
+</html>
+
+
+
+
+
+

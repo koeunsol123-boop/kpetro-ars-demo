@@ -1,0 +1,28 @@
+import fs from "fs";
+import path from "path";
+
+export default function handler(req, res) {
+  try {
+    const dir = path.resolve("/tmp/ai-ars");
+    const file = path.join(dir, "reports.json");
+    if (!fs.existsSync(file)) return res.status(200).json({ data: [] });
+
+    const reports = JSON.parse(fs.readFileSync(file, "utf-8"));
+    const map = new Map();
+
+    for (const r of reports) {
+      const key = `${r.region}-${r.name}`;
+      map.set(key, (map.get(key) || 0) + 1);
+    }
+
+    const result = Array.from(map.entries()).map(([key, count]) => {
+      const [region, name] = key.split("-");
+      return { region, name, count };
+    });
+
+    res.status(200).json({ data: result });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Server error");
+  }
+}

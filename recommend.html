@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>📊 집중관리 추천 지역</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <style>
+    body { font-family: system-ui,sans-serif; margin:40px auto; max-width:900px; }
+    #map { height: 400px; margin-bottom:20px; border-radius:8px; }
+    table { width:100%; border-collapse:collapse; }
+    th,td { border:1px solid #ddd; padding:8px; text-align:center; }
+    th { background:#0077ff; color:white; }
+  </style>
+</head>
+<body>
+  <h1>📊 AI ARS 집중관리 추천 지역</h1>
+  <p>최근 신고 데이터 중 2회 이상 반복된 지역·지점을 표시합니다.</p>
+  <div id="map"></div>
+  <canvas id="chart" height="160"></canvas>
+  <table id="table"><thead><tr><th>지역</th><th>사업장</th><th>신고횟수</th></tr></thead><tbody></tbody></table>
+
+  <script>
+    const regionCoords = {
+      "부산":[35.1796,129.0756],
+      "울산":[35.5384,129.3114],
+      "경남":[35.2372,128.6927],
+      "미상지역":[35.2,129.1]
+    };
+
+    const map = L.map('map').setView([35.1796,129.0756], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    fetch("/api/stats").then(r=>r.json()).then(({data})=>{
+      const tbody = document.querySelector("#table tbody");
+      const labels=[], counts=[];
+      data.forEach(d=>{
+        const coords = regionCoords[d.region] || [35.2,129];
+        const color = d.count>=2 ? "red" : "blue";
+        L.circleMarker(coords,{radius:10,color}).addTo(map)
+          .bindPopup(`${d.region} ${d.name}<br>신고 ${d.count}회`);
+        labels.push(`${d.region}-${d.name}`);
+        counts.push(d.count);
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${d.region}</td><td>${d.name}</td><td>${d.count}</td>`;
+        tbody.appendChild(tr);
+      });
+
+      new Chart(document.getElementById("chart"), {
+        type:"bar",
+        data:{labels,datasets:[{label:"신고횟수",data:counts,backgroundColor:"#0077ff"}]},
+        options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}
+      });
+    });
+  </script>
+</body>
+</html>
