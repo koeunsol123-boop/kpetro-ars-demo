@@ -182,27 +182,22 @@ else if(status === "busy" && record === "yes"){
 
 const lines = [];
 
-// 지역
 lines.push(`지역: ${p.get("region") || ""}`);
 
-// 유형 (기타문의는 괄호 제거)
 if(safeDetail === "기타 문의" || !mode){
   lines.push(`유형: ${safeDetail}`);
 } else {
   lines.push(`유형: ${safeDetail} (${mode})`);
 }
 
-// 신고자 / 주소 / 본문
 lines.push(`신고자: ${p.get("name")} / ${p.get("phone")}`);
 lines.push(`주소: ${p.get("addr")}`);
 lines.push(`내용: ${txt}`);
 
-// 기타문의는 증거물 제거
 if(safeDetail !== "기타 문의"){
   lines.push(`증거물: ${ev}`);
 }
 
-// 🔥 정상접수일 때는 상태 & 녹음 모두 출력 X
 if(statusText){
   lines.push(`상태: ${statusText}`);
 }
@@ -224,12 +219,16 @@ addBtn("접수 확인", async()=>{
   add("2건 이상 접수된 의심 업소가 있습니다.\n확인하시겠습니까?");
   addBtn("지도 확인",()=>{
 
-    addImg("./images/map_shop_blind.png");
+    /* 🔥 수정된 절대경로 */
+    addImg("/images/map_shop_blind.png");
 
     setTimeout(()=>{
       add("해당 구역은 1분기 3회 이상 신고가 접수된 의심 지역입니다.\n확인하시겠습니까?");
       addBtn("지도 확인",()=>{
-        addImg("./images/map_city_blind.png");
+        
+        /* 🔥 수정된 절대경로 */
+        addImg("/images/map_city_blind.png");
+
       });
     },900);
   });
@@ -247,4 +246,5 @@ addBtn("접수 확인", async()=>{
 
 
  
+
 
